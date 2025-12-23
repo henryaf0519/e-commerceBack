@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import {
   Body,
   Controller,
@@ -7,21 +9,54 @@ import {
   Put,
   Param,
   Delete,
+  UseInterceptors,
+  UploadedFiles,
+  ParseFilePipeBuilder,
+  HttpStatus,
 } from '@nestjs/common';
 import { ProductsService } from './products.service';
-import { CreateProductDto } from './dto/create-product.dto'; // Importa el DTO
 import { UpdateProductDto } from './dto/create-product.dto'; // O desde su propio archivo
+import { FilesInterceptor } from '@nestjs/platform-express';
+import { S3Service } from 'src/common/services/s3.service';
 
 @Controller('products')
 export class ProductsController {
-  constructor(private readonly productsService: ProductsService) {}
+  constructor(
+    private readonly productsService: ProductsService,
+    private readonly s3Service: S3Service,
+  ) {}
 
   @Post()
-  create(
+  @UseInterceptors(FilesInterceptor('files'))
+  async create(
     @Headers('x-business-id') businessId: string,
-    @Body() createProductDto: CreateProductDto, // Usa el DTO aquí
+    @Body() body: any,
+    @UploadedFiles(
+      new ParseFilePipeBuilder()
+        .addMaxSizeValidator({ maxSize: 1024 * 1024 })
+        .build({ errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY }),
+    )
+    files: Array<Express.Multer.File>,
   ) {
-    return this.productsService.create(businessId, createProductDto);
+    // 1. Subir imágenes a S3
+    const imageUrls = await Promise.all(
+      files.map((file) => this.s3Service.uploadFile(file)),
+    );
+
+    // 2. Preparar el DTO de datos (sin el businessId aquí dentro)
+    const productDto = {
+      name: body.name,
+      description: body.description,
+      price: parseFloat(body.price),
+      stock: parseInt(body.stock),
+      show: body.show === 'true',
+      isNew: body.isNew === 'true',
+      size: '',
+      color: '',
+      images: imageUrls,
+    };
+
+    return this.productsService.create(businessId, productDto);
   }
 
   @Put(':id')
