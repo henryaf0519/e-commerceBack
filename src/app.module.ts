@@ -4,14 +4,16 @@ import { AppService } from './app.service';
 import { ProductsModule } from './products/products.module';
 import { ConfigModule } from '@nestjs/config';
 import { CommonModule } from './common/common.module';
+import { ShippoModule } from './shippo/shippo.module';
 
 @Module({
   imports: [
     CommonModule,
     ProductsModule,
     ConfigModule.forRoot({
-      isGlobal: true, // Esto soluciona el error de dependencias globalmente
+      isGlobal: true,
     }),
+    ShippoModule,
   ],
   controllers: [AppController],
   providers: [AppService],
