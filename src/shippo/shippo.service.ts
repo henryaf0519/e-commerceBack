@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
-import { Shippo } from 'shippo';
+import { DistanceUnitEnum, Shippo, WeightUnitEnum } from 'shippo';
 import { CreateShipmentDto } from './dto/create-shipment.dto';
 import { ConfigService } from '@nestjs/config';
 
@@ -21,10 +21,32 @@ export class ShippoService {
 
   async createShipment(createShipmentDto: CreateShipmentDto) {
     this.logger.log('🚀 Creando nuevo envío y cotizando...');
+    const payload = {
+      addressFrom: {
+        name: 'Shawn Ippotle',
+        street1: '733 N Kedzie Ave',
+        city: 'CHICAGO',
+        state: 'IL',
+        zip: '60612',
+        country: 'US',
+        phone: '4215559099',
+        email: 'shippotle@goshippo.com',
+      },
+      ...createShipmentDto,
+      parcels: [
+        {
+          length: '12.5',
+          width: '6',
+          height: '12.5',
+          distanceUnit: DistanceUnitEnum.In,
+          weight: '2',
+          massUnit: WeightUnitEnum.Lb,
+        },
+      ],
+    };
 
     try {
-      const shipment = await this.shippo.shipments.create(createShipmentDto);
-
+      const shipment = await this.shippo.shipments.create(payload);
       if (!shipment.rates || shipment.rates.length === 0) {
         throw new BadRequestException(
           'No se encontraron tarifas para esta ruta.',
@@ -36,12 +58,14 @@ export class ShippoService {
 
       const cleanRates = sortedRates.map((rate: any) => ({
         id: rate.objectId,
-        provider: rate.provider, // Ej: "UPS"
-        name: rate.servicelevel.name, // Ej: "Ground Saver"
-        image: rate.providerImage75, // URL del logo
-        price: parseFloat(rate.amount), // Lo enviamos como número para facilitar cálculos en el front
+        provider: rate.provider,
+        name: rate.servicelevel.name,
+        image: rate.providerImage75,
+        price: parseFloat(rate.amount),
         currency: rate.currency,
-        days: rate.estimatedDays,
+        days: rate.estimatedDays
+          ? `${rate.estimatedDays} days`
+          : 'Delivery time pending',
         duration: rate.durationTerms,
       }));
 
