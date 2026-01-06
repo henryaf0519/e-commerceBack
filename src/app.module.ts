@@ -5,6 +5,7 @@ import { ProductsModule } from './products/products.module';
 import { ConfigModule } from '@nestjs/config';
 import { CommonModule } from './common/common.module';
 import { ShippoModule } from './shippo/shippo.module';
+import { StripeModule } from './stripe/stripe.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { ShippoModule } from './shippo/shippo.module';
       isGlobal: true,
     }),
     ShippoModule,
+    StripeModule,
   ],
   controllers: [AppController],
   providers: [AppService],
