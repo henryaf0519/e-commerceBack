@@ -63,4 +63,51 @@ export class StripeService {
     }
   }
 
+  /**
+   * Verifica si un pago fue exitoso y recupera la URL de la factura.
+   * Se llama desde OrdersService cuando se va a crear la orden.
+   */
+  async verifyPayment(paymentIntentId: string) {
+    try {
+      this.logger.log(`🔍 Verificando pago: ${paymentIntentId}`);
+
+      // 1. Recuperamos el pago y EXPANDIMOS 'latest_charge' para ver el recibo
+      const paymentIntent = await this.stripe.paymentIntents.retrieve(
+        paymentIntentId,
+        { expand: ['latest_charge'] }, // <--- ESTO TRAE LA FACTURA
+      );
+
+      // 2. Verificamos que el estado sea 'succeeded'
+      if (paymentIntent.status !== 'succeeded') {
+        throw new BadRequestException(
+          `El pago no es válido. Estado actual: ${paymentIntent.status}`,
+        );
+      }
+
+      // 3. Extraemos la URL de la factura
+      let receiptUrl: any = null;
+
+      // TypeScript necesita ayuda aquí porque latest_charge puede ser string u objeto
+      const charge = paymentIntent.latest_charge as Stripe.Charge;
+
+      if (charge && charge.receipt_url) {
+        receiptUrl = charge.receipt_url;
+      }
+
+      return {
+        success: true,
+        status: paymentIntent.status,
+        receiptUrl: receiptUrl,
+        metadata: paymentIntent.metadata,
+      };
+    } catch (error) {
+      this.logger.error(`❌ Error Verificando Pago: ${error.message}`);
+
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+
+      throw new BadRequestException('No se pudo verificar el pago con Stripe');
+    }
+  }
 }

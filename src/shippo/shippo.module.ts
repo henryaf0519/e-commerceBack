@@ -5,5 +5,6 @@ import { ShippoService } from './shippo.service';
 @Module({
   controllers: [ShippoController],
   providers: [ShippoService],
+  exports: [ShippoService],
 })
 export class ShippoModule {}

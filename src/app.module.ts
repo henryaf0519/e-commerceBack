@@ -6,6 +6,8 @@ import { ConfigModule } from '@nestjs/config';
 import { CommonModule } from './common/common.module';
 import { ShippoModule } from './shippo/shippo.module';
 import { StripeModule } from './stripe/stripe.module';
+import { OrdersModule } from './orders/orders.module';
+import { EmailsModule } from './emails/emails.module';
 
 @Module({
   imports: [
@@ -16,6 +18,8 @@ import { StripeModule } from './stripe/stripe.module';
     }),
     ShippoModule,
     StripeModule,
+    OrdersModule,
+    EmailsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
