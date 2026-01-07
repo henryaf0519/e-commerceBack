@@ -136,7 +136,6 @@ export class ShippoService {
         trackingNumber: transaction.trackingNumber,
         trackingUrl: transaction.trackingUrlProvider,
         labelUrl: transaction.labelUrl,
-        // Usamos encadenamiento opcional para evitar el error de 'undefined'
         carrier: rateInfo?.provider || 'Carrier',
         eta: transaction.eta || 'Pendiente',
       };
