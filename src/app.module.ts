@@ -8,6 +8,8 @@ import { ShippoModule } from './shippo/shippo.module';
 import { StripeModule } from './stripe/stripe.module';
 import { OrdersModule } from './orders/orders.module';
 import { EmailsModule } from './emails/emails.module';
+import { AuthModule } from './auth/auth.module';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
@@ -20,6 +22,8 @@ import { EmailsModule } from './emails/emails.module';
     StripeModule,
     OrdersModule,
     EmailsModule,
+    AuthModule,
+    UsersModule,
   ],
   controllers: [AppController],
   providers: [AppService],
