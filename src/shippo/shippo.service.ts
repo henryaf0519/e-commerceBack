@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
@@ -20,7 +22,24 @@ export class ShippoService {
   }
 
   async createShipment(createShipmentDto: CreateShipmentDto) {
-    this.logger.log('🚀 Creando nuevo envío y cotizando...');
+    this.logger.log('🚀 Iniciando proceso de envío...');
+
+    // --- PASO 1: VALIDACIÓN DE DIRECCIÓN ---
+    // Extraemos la dirección de destino del DTO.
+    // Asumimos que createShipmentDto tiene la propiedad 'addressTo'
+    // ya que luego haces un spread (...) de ese DTO en el payload.
+    const destinationAddress = createShipmentDto['addressTo'];
+
+    if (destinationAddress) {
+      await this.validateAddressOrThrow(destinationAddress);
+    } else {
+      throw new BadRequestException(
+        'Falta la dirección de destino (addressTo)',
+      );
+    }
+
+    this.logger.log('✅ Dirección válida. Cotizando envío...');
+
     const payload = {
       addressFrom: {
         name: 'Shawn Ippotle',
@@ -47,11 +66,13 @@ export class ShippoService {
 
     try {
       const shipment = await this.shippo.shipments.create(payload);
+
       if (!shipment.rates || shipment.rates.length === 0) {
         throw new BadRequestException(
           'No se encontraron tarifas para esta ruta.',
         );
       }
+
       const sortedRates = shipment.rates.sort(
         (a, b) => parseFloat(a.amount) - parseFloat(b.amount),
       );
@@ -76,7 +97,7 @@ export class ShippoService {
       return {
         message: 'Cotización exitosa',
         shipmentId: shipment.objectId,
-        rates: cleanRates, // ¡Ahora van ordenadas y limpias!
+        rates: cleanRates,
       };
     } catch (error) {
       this.logger.error(`❌ Error creando envío: ${error.message}`);
@@ -177,6 +198,41 @@ export class ShippoService {
     } catch (error) {
       this.logger.error(`❌ Error al rastrear: ${error.message}`);
       throw new BadRequestException('No se pudo obtener el estado de rastreo.');
+    }
+  }
+
+  private async validateAddressOrThrow(addressTo: any) {
+    this.logger.log(
+      `🔍 Verificando dirección en ${addressTo.city}, ${addressTo.state}...`,
+    );
+
+    try {
+      const address = await this.shippo.addresses.create({
+        ...addressTo,
+        validate: true,
+      });
+
+      if (address.validationResults && !address.validationResults.isValid) {
+        const messages =
+          address.validationResults.messages
+            ?.map((m: any) => m.text)
+            .join('. ') || 'Invalid shipping address';
+
+        throw new BadRequestException(`Invalid shipping address: ${messages}`);
+      }
+
+      // Si llegamos aquí, es válida
+      return true;
+    } catch (error) {
+      // Si el error ya es BadRequestException (lo lanzamos arriba), lo dejamos pasar
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      // Si es otro error (conexión, etc), lanzamos uno genérico
+      this.logger.error(`❌ Error de validación interna: ${error.message}`);
+      throw new BadRequestException(
+        'No se pudo validar la dirección. Verifica los datos.',
+      );
     }
   }
 }
