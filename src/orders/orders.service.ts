@@ -144,17 +144,22 @@ export class OrdersService {
     }
   }
 
-  async getOrdersByUser(businessId: string, email: string) {
+  async getOrdersByUser(email: string, businessId: string) {
     const command = new QueryCommand({
       TableName: this.tableName,
-      KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
+      KeyConditionExpression: 'PK = :pk AND begins_with(SK, :skPrefix)',
       ExpressionAttributeValues: {
         ':pk': `BUSINESS#${businessId}`,
-        ':sk': `USER#${email}#ORDER#`,
+        ':skPrefix': `USER#${email}#ORDER#`,
       },
     });
 
-    const response = await this.docClient.send(command);
-    return response.Items;
+    try {
+      const result = await this.docClient.send(command);
+      return result.Items || [];
+    } catch (error) {
+      this.logger.error(`Error buscando ordenes: ${error.message}`);
+      throw new InternalServerErrorException('Error recuperando tus pedidos');
+    }
   }
 }

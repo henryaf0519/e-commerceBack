@@ -2,8 +2,7 @@
 import {
   Injectable,
   InternalServerErrorException,
-  ConflictException,
-  UnauthorizedException,
+  ConflictException
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
@@ -14,18 +13,13 @@ import {
 } from '@aws-sdk/lib-dynamodb';
 import * as bcrypt from 'bcrypt';
 import { CreateUserDto } from '../auth/dto/create-user.dto';
-import { LoginUserDto } from 'src/auth/dto/login-user.dto';
-import { JwtService } from '@nestjs/jwt';
 
 @Injectable()
 export class UsersService {
   private readonly tableName: string;
   private readonly docClient: DynamoDBDocumentClient;
 
-  constructor(
-    private configService: ConfigService,
-    private jwtService: JwtService,
-  ) {
+  constructor(private configService: ConfigService) {
     const client = new DynamoDBClient({
       region: this.configService.getOrThrow<string>('AWS_REGION'),
     });
@@ -94,40 +88,5 @@ export class UsersService {
     } catch (error) {
       throw new InternalServerErrorException('Error al crear el usuario en DB');
     }
-  }
-
-  async login(loginUserDto: LoginUserDto) {
-    const { email, password } = loginUserDto;
-
-    const user = await this.findOneByEmail(email);
-
-    if (!user) {
-      throw new UnauthorizedException('Credenciales inválidas (Email)');
-    }
-
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-
-    if (!isPasswordValid) {
-      throw new UnauthorizedException('Credenciales inválidas (Password)');
-    }
-
-    const payload = {
-      sub: user.PK,
-      email: user.email,
-      roles: user.roles || ['customer'],
-      businessId: user.businessId,
-      name: user.name,
-    };
-
-    const token = this.jwtService.sign(payload);
-
-    const userWithoutPassword = { ...user };
-    delete userWithoutPassword.password;
-
-    return {
-      success: true,
-      access_token: token,
-      user: userWithoutPassword,
-    };
   }
 }
