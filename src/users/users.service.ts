@@ -1,8 +1,9 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import {
   Injectable,
   InternalServerErrorException,
-  ConflictException
+  ConflictException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
@@ -10,6 +11,7 @@ import {
   DynamoDBDocumentClient,
   PutCommand,
   GetCommand,
+  UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
 import * as bcrypt from 'bcrypt';
 import { CreateUserDto } from '../auth/dto/create-user.dto';
@@ -88,5 +90,40 @@ export class UsersService {
     } catch (error) {
       throw new InternalServerErrorException('Error al crear el usuario en DB');
     }
+  }
+
+  async updateProfile(email: string, data: any) {
+    const command = new UpdateCommand({
+      TableName: this.tableName,
+      Key: { PK: `USER#${email}`, SK: 'PROFILE' },
+      UpdateExpression: `set #n = :n, phone = :p, address = :addr`,
+      ExpressionAttributeNames: { '#n': 'name' }, // 'name' es palabra reservada en Dynamo a veces
+      ExpressionAttributeValues: {
+        ':n': data.name,
+        ':p': data.phone,
+        ':addr': {
+          // Actualizamos el objeto address completo
+          street1: data.street1,
+          city: data.city,
+          state: data.state,
+          zip: data.zip,
+          country: data.country,
+        },
+      },
+      ReturnValues: 'ALL_NEW',
+    });
+    const res = await this.docClient.send(command);
+    const { ...cleanUser } = res.Attributes;
+    return cleanUser;
+  }
+
+  async updatePassword(email: string, newHash: string) {
+    const command = new UpdateCommand({
+      TableName: this.tableName,
+      Key: { PK: `USER#${email}`, SK: 'PROFILE' },
+      UpdateExpression: 'set password = :p',
+      ExpressionAttributeValues: { ':p': newHash },
+    });
+    await this.docClient.send(command);
   }
 }
