@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import {
@@ -8,6 +9,7 @@ import {
   Query,
   UseGuards,
   Request,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -35,5 +37,13 @@ export class OrdersController {
   async getMyOrders(@Request() req) {
     const { email, businessId } = req.user;
     return this.ordersService.getOrdersByUser(email, businessId);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Get('admin/all')
+  async getAllOrdersForAdmin(@Request() req) {
+    const user = req.user;
+    console.log(user);
+    return this.ordersService.findAllByBusiness(user.businessId);
   }
 }

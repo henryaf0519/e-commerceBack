@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import {
@@ -160,6 +161,41 @@ export class OrdersService {
     } catch (error) {
       this.logger.error(`Error buscando ordenes: ${error.message}`);
       throw new InternalServerErrorException('Error recuperando tus pedidos');
+    }
+  }
+
+  async findAllByBusiness(businessId: string) {
+    const command = new QueryCommand({
+      TableName: this.tableName,
+      // 1. Solo usamos la PK en la condición de llave
+      KeyConditionExpression: 'PK = :pk',
+      ExpressionAttributeValues: {
+        ':pk': `BUSINESS#${businessId}`,
+      },
+    });
+
+    try {
+      const result = await this.docClient.send(command);
+      const allItems = result.Items || [];
+
+      // 2. Filtramos en memoria (JavaScript) para obtener solo las órdenes
+      // Buscamos que el SK contenga "#ORDER#"
+      const orders = allItems.filter(
+        (item) => item.SK && item.SK.includes('#ORDER#'),
+      );
+
+      // 3. Ordenamos por fecha (descendente: más reciente primero)
+      return orders.sort((a, b) => {
+        const dateA = new Date(a.createdAt).getTime();
+        const dateB = new Date(b.createdAt).getTime();
+        return dateB - dateA;
+      });
+    } catch (error) {
+      // Ahora el log te dará el error real si algo más falla
+      console.error('Error fetching admin orders:', error);
+      throw new InternalServerErrorException(
+        'Error al cargar las órdenes de la tienda',
+      );
     }
   }
 }
