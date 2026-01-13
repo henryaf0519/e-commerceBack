@@ -9,6 +9,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { CreateUserDto } from './dto/create-user.dto';
 
 @Injectable()
 export class AuthService {
@@ -74,5 +75,9 @@ export class AuthService {
     // 3. Guardar
     await this.usersService.updatePassword(email, newHash);
     return { success: true, message: 'Contraseña actualizada' };
+  }
+
+  async registerAdmin(createUserDto: CreateUserDto) {
+    return this.usersService.createAdmin(createUserDto);
   }
 }

@@ -92,6 +92,53 @@ export class UsersService {
     }
   }
 
+  async createAdmin(createUserDto: CreateUserDto) {
+    const { email, password, businessId, ...profileData } = createUserDto;
+
+    const existingUser = await this.findOneByEmail(email);
+    if (existingUser) {
+      throw new ConflictException('Este correo ya está registrado.');
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    const newAdmin = {
+      PK: `USER#${email}`,
+      SK: `PROFILE`,
+      entityType: 'admin',
+      createdAt: new Date().toISOString(),
+      email,
+      password: hashedPassword,
+      businessId,
+      name: profileData.name,
+      phone: profileData.phone,
+      address: {
+        street1: profileData.street1,
+        city: profileData.city,
+        state: profileData.state,
+        zip: profileData.zip,
+        country: profileData.country,
+      },
+      roles: ['admin'],
+    };
+
+    try {
+      await this.docClient.send(
+        new PutCommand({
+          TableName: this.tableName,
+          Item: newAdmin,
+        }),
+      );
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { password, ...result } = newAdmin;
+      return result;
+    } catch (error) {
+      console.error(error);
+      throw new InternalServerErrorException('Error al crear el admin en DB');
+    }
+  }
+
   async updateProfile(email: string, data: any) {
     const command = new UpdateCommand({
       TableName: this.tableName,

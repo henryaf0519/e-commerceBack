@@ -47,4 +47,9 @@ export class AuthController {
   async changePassword(@Request() req, @Body() dto: ChangePasswordDto) {
     return this.authService.changePassword(req.user.email, dto);
   }
+
+  @Post('register-admin')
+  async registerAdmin(@Body() createUserDto: CreateUserDto) {
+    return this.authService.registerAdmin(createUserDto);
+  }
 }
