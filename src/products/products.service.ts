@@ -15,6 +15,7 @@ import {
   GetCommand,
   PutCommand,
   QueryCommand,
+  ScanCommand,
   UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { ConfigService } from '@nestjs/config';
@@ -161,6 +162,55 @@ export class ProductsService {
     } catch (error) {
       console.error('Error deleting product:', error);
       throw new InternalServerErrorException('No se pudo eliminar el producto');
+    }
+  }
+
+  async createSection(businessId: string, sectionName: string) {
+    // Creamos un slug para la SK (ej: "Uvasadas" -> "uvasadas")
+    const sectionId = sectionName.toLowerCase().trim().replace(/\s+/g, '-');
+
+    const newSection = {
+      PK: `BUSINESS#${businessId}`, // Partition Key: El negocio
+      SK: `SECTION#${sectionId}`, // Sort Key: La sección específica
+      entityType: 'sections',
+      name: sectionName,
+      createdAt: new Date().toISOString(),
+    };
+
+    await this.docClient.send(
+      new PutCommand({
+        TableName: 'sections',
+        Item: newSection,
+      }),
+    );
+    return newSection;
+  }
+
+  async findAllSections(businessId: string): Promise<string[]> {
+    const command = new QueryCommand({
+      TableName: 'sections',
+      KeyConditionExpression: 'PK = :pk AND begins_with(SK, :skPrefix)',
+      // 1. Pedimos solo el atributo 'name'
+      ProjectionExpression: '#n',
+      ExpressionAttributeNames: {
+        '#n': 'name', // Alias para evitar conflicto con palabra reservada
+      },
+      ExpressionAttributeValues: {
+        ':pk': `BUSINESS#${businessId}`,
+        ':skPrefix': 'SECTION#',
+      },
+    });
+
+    try {
+      const result = await this.docClient.send(command);
+
+      // 2. Mapeamos el resultado para devolver solo los nombres
+      // Si result.Items es [{name: "Uvasadas"}, {name: "Carnes"}]
+      // Retornará ["Uvasadas", "Carnes"]
+      return (result.Items || []).map((item) => item.name);
+    } catch (error) {
+      console.error('Error fetching sections:', error);
+      throw new InternalServerErrorException('Error al obtener las secciones');
     }
   }
 }
