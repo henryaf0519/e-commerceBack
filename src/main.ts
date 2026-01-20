@@ -1,13 +1,28 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 
+const allowedOrigins = [
+  'http://localhost:4200',
+  'https://orvexchat-666d6.web.app',
+];
+
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
   app.enableCors({
-    origin: 'http://localhost:4200', // Permite solo tu app de Angular
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-    allowedHeaders: 'Content-Type, Accept, x-business-id, Authorization', // Importante permitir tu header personalizado
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.indexOf(origin) !== -1) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    allowedHeaders: 'Content-Type, Accept, x-business-id, Authorization',
     credentials: true,
   });
   app.useGlobalPipes(
