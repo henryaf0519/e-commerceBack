@@ -5,9 +5,11 @@ import {
   IsOptional,
   IsBoolean,
   ValidateNested,
+  IsNumber,
+  IsArray,
 } from 'class-validator';
 
-// 1. Definimos la estructura del objeto Dirección
+// 1. Definimos la estructura del objeto Dirección (INTACTO)
 class AddressPartDto {
   @IsString()
   @IsNotEmpty()
@@ -42,12 +44,40 @@ class AddressPartDto {
   email?: string;
 }
 
-// 3. DTO Principal para el Envío
+// 2. NUEVO: Definimos la estructura para las Parcelas (Dimensiones)
+class ParcelPartDto {
+  @IsNumber()
+  @IsNotEmpty()
+  length: number;
+
+  @IsNumber()
+  @IsNotEmpty()
+  width: number;
+
+  @IsNumber()
+  @IsNotEmpty()
+  height: number;
+
+  @IsNumber()
+  @IsNotEmpty()
+  weight: number;
+
+  @IsNumber()
+  @IsOptional()
+  quantity?: number;
+}
+
 export class CreateShipmentDto {
   @ValidateNested()
   @Type(() => AddressPartDto)
   @IsNotEmpty()
   addressTo: AddressPartDto;
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ParcelPartDto)
+  @IsNotEmpty()
+  parcels: ParcelPartDto[];
 
   @IsBoolean()
   @IsOptional()

@@ -7,6 +7,7 @@ import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { DistanceUnitEnum, Shippo, WeightUnitEnum } from 'shippo';
 import { CreateShipmentDto } from './dto/create-shipment.dto';
 import { ConfigService } from '@nestjs/config';
+import { calculateConsolidatedParcel } from 'src/utils/utils';
 
 @Injectable()
 export class ShippoService {
@@ -39,6 +40,9 @@ export class ShippoService {
     }
 
     this.logger.log('✅ Dirección válida. Cotizando envío...');
+    const masterParcel = calculateConsolidatedParcel(
+      createShipmentDto['parcels'],
+    );
 
     const payload = {
       addressFrom: {
@@ -51,17 +55,9 @@ export class ShippoService {
         phone: '4215559099',
         email: 'shippotle@goshippo.com',
       },
-      ...createShipmentDto,
-      parcels: [
-        {
-          length: '12.5',
-          width: '6',
-          height: '12.5',
-          distanceUnit: DistanceUnitEnum.In,
-          weight: '2',
-          massUnit: WeightUnitEnum.Lb,
-        },
-      ],
+      addressTo: destinationAddress,
+      parcels: [masterParcel],
+      async: false,
     };
 
     try {
