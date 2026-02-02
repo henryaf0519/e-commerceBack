@@ -39,6 +39,22 @@ export class CreateProductDto {
   @IsBoolean({ message: 'show debe ser un valor booleano' })
   @IsOptional()
   show: boolean = true;
+
+  @IsString({ message: 'length debe ser un valor string' })
+  @IsOptional()
+  length: string;
+
+  @IsString({ message: 'width debe ser un valor string' })
+  @IsOptional()
+  width: string;
+
+  @IsString({ message: 'height debe ser un valor string' })
+  @IsOptional()
+  height: string;
+
+  @IsString({ message: 'weight debe ser un valor string' })
+  @IsOptional()
+  weight: string;
 }
 
 export class UpdateProductDto extends CreateProductDto {}

@@ -45,7 +45,6 @@ export class ProductsController {
     const imageUrls = await Promise.all(
       files.map((file) => this.s3Service.uploadFile(file)),
     );
-
     // 2. Preparar el DTO de datos (sin el businessId aquí dentro)
     const productDto = {
       name: body.name,
@@ -57,6 +56,10 @@ export class ProductsController {
       isNew: body.isNew === 'true',
       size: '',
       color: '',
+      length: body.length,
+      width: body.width,
+      height: body.height,
+      weight: body.weight,
       images: imageUrls,
     };
 
@@ -138,6 +141,10 @@ export class ProductsController {
       isNew: body.isNew === 'true',
       size: body.size || '',
       color: body.color || '',
+      length: body.length,
+      width: body.width,
+      height: body.height,
+      weight: body.weight,
       images: finalImages,
     };
 
