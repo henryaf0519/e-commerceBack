@@ -6,7 +6,7 @@ import { ValidationPipe } from '@nestjs/common';
 
 const allowedOrigins = [
   'http://localhost:4200',
-  'https://orvexchat-666d6.web.app',
+  'https://rootandcane.com',
 ];
 
 async function bootstrap() {
