@@ -64,7 +64,7 @@ export function calculateConsolidatedParcel(parcels: ParcelDimensions[]) {
     length: String(maxLength),
     width: String(maxWidth),
     height: String(totalHeight),
-    weight: String(totalWeight),
+    weight: String(totalWeight.toFixed(2)),
     distanceUnit: FORCED_DISTANCE, // Es de tipo DistanceUnitEnum (in)
     massUnit: FORCED_MASS, // Es de tipo WeightUnitEnum (lb)
   };

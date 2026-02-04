@@ -17,18 +17,18 @@ export class ShippoService {
 
   constructor(private configService: ConfigService) {
     // 2. Usamos ConfigService para la API Key (Asegúrate de tener SHIPPO_KEY en tu .env)
+    console.log(
+      'Shippo key: ',
+      this.configService.getOrThrow<string>('SHIPPO_KEY'),
+    );
+
     this.shippo = new Shippo({
       apiKeyHeader: this.configService.getOrThrow<string>('SHIPPO_KEY'),
     });
   }
 
   async createShipment(createShipmentDto: CreateShipmentDto) {
-    this.logger.log('🚀 Iniciando proceso de envío...');
-
-    // --- PASO 1: VALIDACIÓN DE DIRECCIÓN ---
-    // Extraemos la dirección de destino del DTO.
-    // Asumimos que createShipmentDto tiene la propiedad 'addressTo'
-    // ya que luego haces un spread (...) de ese DTO en el payload.
+    this.logger.log('🚀 Iniciando proceso de envío...', createShipmentDto);
     const destinationAddress = createShipmentDto['addressTo'];
 
     if (destinationAddress) {
@@ -43,6 +43,8 @@ export class ShippoService {
     const masterParcel = calculateConsolidatedParcel(
       createShipmentDto['parcels'],
     );
+
+    console.log('Master Parcel:', masterParcel);
 
     const payload = {
       /* addressFrom: {
@@ -70,6 +72,7 @@ export class ShippoService {
       async: false,
     };
 
+    console.log('Payload:', payload);
     try {
       const shipment = await this.shippo.shipments.create(payload);
 
