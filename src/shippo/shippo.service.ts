@@ -17,10 +17,7 @@ export class ShippoService {
 
   constructor(private configService: ConfigService) {
     // 2. Usamos ConfigService para la API Key (Asegúrate de tener SHIPPO_KEY en tu .env)
-    console.log(
-      'Shippo key: ',
-      this.configService.getOrThrow<string>('SHIPPO_KEY'),
-    );
+
 
     this.shippo = new Shippo({
       apiKeyHeader: this.configService.getOrThrow<string>('SHIPPO_KEY'),
