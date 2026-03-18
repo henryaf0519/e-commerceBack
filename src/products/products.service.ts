@@ -165,15 +165,30 @@ export class ProductsService {
     }
   }
 
-  async createSection(businessId: string, sectionName: string) {
-    // Creamos un slug para la SK (ej: "Uvasadas" -> "uvasadas")
-    const sectionId = sectionName.toLowerCase().trim().replace(/\s+/g, '-');
+  async createSection(
+    businessId: string,
+    sectionDto: {
+      title: string;
+      subtitle: string;
+      tagline: string;
+      image: string;
+    },
+  ) {
+    // Creamos un slug para la SK usando el 'title' (ej: "The Harvest" -> "the-harvest")
+    const sectionId = sectionDto.title
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, '-');
 
     const newSection = {
       PK: `BUSINESS#${businessId}`, // Partition Key: El negocio
       SK: `SECTION#${sectionId}`, // Sort Key: La sección específica
       entityType: 'sections',
-      name: sectionName,
+      title: sectionDto.title,
+      name: sectionDto.title, // Guardamos 'name' por compatibilidad si tu app aún lo usa en otras partes
+      subtitle: sectionDto.subtitle,
+      tagline: sectionDto.tagline,
+      image: sectionDto.image,
       createdAt: new Date().toISOString(),
     };
 
@@ -183,18 +198,16 @@ export class ProductsService {
         Item: newSection,
       }),
     );
+
     return newSection;
   }
 
-  async findAllSections(businessId: string): Promise<string[]> {
+  async findAllSections(businessId: string): Promise<any[]> {
     const command = new QueryCommand({
       TableName: 'sections',
       KeyConditionExpression: 'PK = :pk AND begins_with(SK, :skPrefix)',
-      // 1. Pedimos solo el atributo 'name'
-      ProjectionExpression: '#n',
-      ExpressionAttributeNames: {
-        '#n': 'name', // Alias para evitar conflicto con palabra reservada
-      },
+      // Eliminamos ProjectionExpression y ExpressionAttributeNames
+      // para que DynamoDB nos devuelva todos los atributos del registro
       ExpressionAttributeValues: {
         ':pk': `BUSINESS#${businessId}`,
         ':skPrefix': 'SECTION#',
@@ -204,10 +217,17 @@ export class ProductsService {
     try {
       const result = await this.docClient.send(command);
 
-      // 2. Mapeamos el resultado para devolver solo los nombres
-      // Si result.Items es [{name: "Uvasadas"}, {name: "Carnes"}]
-      // Retornará ["Uvasadas", "Carnes"]
-      return (result.Items || []).map((item) => item.name);
+      // Mapeamos el resultado para devolver objetos completos
+      // y opcionalmente limpiamos las llaves internas de DynamoDB (PK y SK)
+      return (result.Items || []).map((item) => ({
+        id: item.SK.replace('SECTION#', ''),
+        title: item.title || item.name,
+        name: item.name,
+        subtitle: item.subtitle || '',
+        tagline: item.tagline || '',
+        image: item.image || null,
+        createdAt: item.createdAt,
+      }));
     } catch (error) {
       console.error('Error fetching sections:', error);
       throw new InternalServerErrorException('Error al obtener las secciones');
