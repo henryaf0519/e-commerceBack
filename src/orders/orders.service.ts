@@ -19,6 +19,8 @@ import { ShippoService } from '../shippo/shippo.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { StripeService } from 'src/stripe/stripe.service';
 import { EmailsService } from 'src/emails/emails.service';
+import { WompiService } from 'src/wompi/wompi.service';
+import { CreateWompiOrderDto } from './dto/create-wompi-order.dto';
 
 @Injectable()
 export class OrdersService {
@@ -31,6 +33,7 @@ export class OrdersService {
     private shippoService: ShippoService,
     private stripeService: StripeService,
     private emailService: EmailsService,
+    private wompiService: WompiService,
   ) {
     const client = new DynamoDBClient({
       region: this.configService.getOrThrow<string>('AWS_REGION'),
@@ -142,6 +145,96 @@ export class OrdersService {
       this.logger.error(`❌ Error creando orden: ${error.message}`);
       if (error instanceof BadRequestException) throw error;
       throw new InternalServerErrorException('Error procesando la orden');
+    }
+  }
+
+  async createWompiOrder(data: CreateWompiOrderDto) {
+    const { businessId, email, items, shippingAddress, transactionId } = data;
+    const orderId = uuidv4();
+    const now = new Date().toISOString();
+
+    try {
+      this.logger.log(`Procesando nueva orden de Wompi: ${transactionId}`);
+
+      // 1. Validar el pago directamente con el módulo de Wompi
+      const paymentVerification = await this.wompiService.verifyPayment({
+        transactionId,
+      });
+
+      // 2. Calcular subtotales
+      const subtotal = items.reduce(
+        (acc, item) => acc + item.price * item.quantity,
+        0,
+      );
+
+      // 3. Crear el objeto de factura (Usamos el monto real que Wompi cobró)
+      const invoice = {
+        invoiceId: `INV-${orderId.slice(0, 8).toUpperCase()}`,
+        date: now,
+        items,
+        subtotal,
+        total: paymentVerification.amount,
+        currency: paymentVerification.currency,
+        status: 'PAID',
+        paymentRef: transactionId,
+        paymentGateway: 'WOMPI',
+        paymentMethod: paymentVerification.paymentMethod, // ej: NEQUI, CARD
+      };
+
+      // 4. Datos de envío temporales (Ya que no usamos Shippo aquí)
+      const shippingData = {
+        transactionId: 'PENDING_MANUAL',
+        trackingNumber: 'Por confirmar',
+        trackingUrl: null,
+        labelUrl: null,
+        carrier: 'Logística Interna',
+        address: shippingAddress,
+      };
+
+      // 5. Construir el registro para DynamoDB
+      const dbItem = {
+        PK: `BUSINESS#${businessId}`,
+        SK: `USER#${email}#ORDER#${orderId}`,
+        entityType: 'order',
+        createdAt: now,
+        email,
+        orderId,
+        shipping: shippingData,
+        invoice,
+        status: 'PAID_PENDING_SHIPMENT', // Estado distinto para saber que falta el envío
+      };
+
+      // 6. Guardar en base de datos
+      await this.docClient.send(
+        new PutCommand({
+          TableName: this.tableName,
+          Item: dbItem,
+        }),
+      );
+
+      // 7. Enviar correo de confirmación
+      await this.emailService.sendOrderConfirmation(email, {
+        orderId,
+        invoice,
+        shipping: shippingData,
+      });
+
+      return {
+        success: true,
+        orderId,
+        invoice,
+        shipping: {
+          trackingUrl: null,
+          trackingNumber: 'Por confirmar',
+          labelUrl: null,
+        },
+      };
+    } catch (error) {
+      this.logger.error(`❌ Error creando orden Wompi: ${error.message}`);
+      if (error instanceof BadRequestException) throw error;
+      throw new InternalServerErrorException(
+        'Error procesando la orden con Wompi',
+      );
     }
   }
 

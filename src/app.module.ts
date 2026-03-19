@@ -10,6 +10,7 @@ import { OrdersModule } from './orders/orders.module';
 import { EmailsModule } from './emails/emails.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
+import { WompiModule } from './wompi/wompi.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { UsersModule } from './users/users.module';
     EmailsModule,
     AuthModule,
     UsersModule,
+    WompiModule,
   ],
   controllers: [AppController],
   providers: [AppService],

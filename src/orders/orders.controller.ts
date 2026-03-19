@@ -9,11 +9,11 @@ import {
   Query,
   UseGuards,
   Request,
-  UnauthorizedException,
 } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { AuthGuard } from '@nestjs/passport';
+import { CreateWompiOrderDto } from './dto/create-wompi-order.dto';
 
 @Controller('orders')
 export class OrdersController {
@@ -22,6 +22,11 @@ export class OrdersController {
   @Post()
   create(@Body() createOrderDto: CreateOrderDto) {
     return this.ordersService.createOrder(createOrderDto);
+  }
+
+  @Post('wompi')
+  createWompi(@Body() createWompiOrderDto: CreateWompiOrderDto) {
+    return this.ordersService.createWompiOrder(createWompiOrderDto);
   }
 
   @Get('user')
