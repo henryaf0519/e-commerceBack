@@ -21,11 +21,13 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { v4 as uuidv4 } from 'uuid';
 import { CreateProductDto } from './dto/create-product.dto';
+import { CreateFeedbackDto } from './dto/create-feedback.dto';
 
 @Injectable()
 export class ProductsService {
   private readonly tableName: string;
   private readonly docClient: DynamoDBDocumentClient;
+  private readonly feedbackTableName: string;
 
   constructor(private configService: ConfigService) {
     const client = new DynamoDBClient({
@@ -33,6 +35,8 @@ export class ProductsService {
     });
     this.docClient = DynamoDBDocumentClient.from(client);
     this.tableName = this.configService.getOrThrow<string>('PRODUCTS');
+    this.feedbackTableName =
+      this.configService.get<string>('FEEDBACKS_TABLE') || 'feedbacks';
   }
 
   async create(businessId: string, productData: CreateProductDto) {
@@ -231,6 +235,59 @@ export class ProductsService {
     } catch (error) {
       console.error('Error fetching sections:', error);
       throw new InternalServerErrorException('Error al obtener las secciones');
+    }
+  }
+
+  async addFeedback(
+    businessId: string,
+    productId: string,
+    feedbackData: CreateFeedbackDto,
+  ) {
+    const feedbackId = uuidv4();
+
+    const command = new PutCommand({
+      TableName: this.feedbackTableName,
+      Item: {
+        PK: `PRODUCT#${productId}`, // Usamos el ID del producto como partición
+        SK: `FEEDBACK#${feedbackId}`, // ID único del comentario
+        businessId: businessId,
+        productId: productId,
+        entityType: 'feedback',
+        customerName: feedbackData.customerName || 'Anónimo',
+        comment: feedbackData.comment,
+        createdAt: new Date().toISOString(),
+      },
+    });
+
+    await this.docClient.send(command);
+    return { id: feedbackId, ...feedbackData };
+  }
+
+  async getProductFeedbacks(productId: string) {
+    const command = new QueryCommand({
+      TableName: this.feedbackTableName,
+      // Buscamos todos los SK que empiecen por FEEDBACK# dentro de ese PRODUCT#
+      KeyConditionExpression: 'PK = :pk AND begins_with(SK, :skPrefix)',
+      ExpressionAttributeValues: {
+        ':pk': `PRODUCT#${productId}`,
+        ':skPrefix': 'FEEDBACK#',
+      },
+    });
+
+    try {
+      const result = await this.docClient.send(command);
+      // Mapeamos para devolver un objeto más limpio al frontend
+      return (result.Items || []).map((item) => ({
+        id: item.id,
+        customerName: item.customerName,
+        comment: item.comment,
+        createdAt: item.createdAt,
+      }));
+    } catch (error) {
+      console.error('Error fetching feedbacks:', error);
+      throw new InternalServerErrorException(
+        'Error al obtener los comentarios',
+      );
     }
   }
 }

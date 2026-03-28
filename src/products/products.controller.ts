@@ -21,6 +21,7 @@ import { ProductsService } from './products.service';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { S3Service } from 'src/common/services/s3.service';
 import { AuthGuard } from '@nestjs/passport';
+import { CreateFeedbackDto } from './dto/create-feedback.dto';
 
 @Controller('products')
 export class ProductsController {
@@ -158,5 +159,23 @@ export class ProductsController {
     @Headers('x-business-id') businessId: string,
   ) {
     return this.productsService.remove(businessId, productId);
+  }
+
+  @Get(':id/feedback')
+  async getProductFeedbacks(@Param('id') productId: string) {
+    return this.productsService.getProductFeedbacks(productId);
+  }
+
+  // Crear un nuevo comentario para un producto
+  @Post(':id/feedback')
+  async addFeedback(
+    @Headers('x-business-id') businessId: string,
+    @Param('id') productId: string,
+    @Body() body: CreateFeedbackDto,
+  ) {
+    if (!businessId) {
+      throw new UnauthorizedException('Falta el header x-business-id');
+    }
+    return this.productsService.addFeedback(businessId, productId, body);
   }
 }
