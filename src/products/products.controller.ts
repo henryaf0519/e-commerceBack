@@ -178,4 +178,9 @@ export class ProductsController {
     }
     return this.productsService.addFeedback(businessId, productId, body);
   }
+
+  @Get('feedback/latest/global')
+  async getGlobalFeedbacks(@Headers('x-business-id') businessId: string) {
+    return this.productsService.getLatestGlobalFeedbacks(businessId);
+  }
 }

@@ -290,4 +290,29 @@ export class ProductsService {
       );
     }
   }
+
+  // En products.service.ts
+
+  async getLatestGlobalFeedbacks(businessId: string) {
+    const command = new QueryCommand({
+      TableName: this.feedbackTableName,
+      IndexName: 'entityType-createdAt-index', // El nombre exacto de tu imagen
+      KeyConditionExpression: 'entityType = :type',
+      FilterExpression: 'businessId = :bid', // Filtramos por tu negocio
+      ExpressionAttributeValues: {
+        ':type': 'feedback',
+        ':bid': businessId,
+      },
+      ScanIndexForward: false,
+      Limit: 6,
+    });
+
+    try {
+      const result = await this.docClient.send(command);
+      return result.Items || [];
+    } catch (error) {
+      console.error('Error consultando GSI:', error);
+      throw new InternalServerErrorException('Error al obtener testimonios');
+    }
+  }
 }

@@ -20,6 +20,7 @@ import { CreateOrderDto } from './dto/create-order.dto';
 import { StripeService } from 'src/stripe/stripe.service';
 import { EmailsService } from 'src/emails/emails.service';
 import { WompiService } from 'src/wompi/wompi.service';
+import { CreateWompiOrderDto } from './dto/create-wompi-order.dto';
 
 @Injectable()
 export class OrdersService {
