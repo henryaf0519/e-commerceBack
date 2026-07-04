@@ -24,9 +24,9 @@ export class EmailsService {
     const { orderId, invoice, shipping } = orderDetails;
 
     const brandColor = '#d946ef'; // El color rosa de tu marca
-const bgColor = '#fdf4ff'; // Un fondo muy suave para contrastar
+    const bgColor = '#fdf4ff'; // Un fondo muy suave para contrastar
 
-const htmlContent = `
+    const htmlContent = `
   <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; border: 1px solid #f3f4f6;">
     
     <div style="background-color: ${brandColor}; padding: 30px 0; text-align: center;">
@@ -95,6 +95,33 @@ const htmlContent = `
     } catch (error) {
       this.logger.error(`❌ Error enviando email: ${error.message}`);
       // No lanzamos error para no romper la respuesta al usuario si falla el email
+    }
+  }
+
+
+  // emails.service.ts
+  async sendPromotionEmail(to: string, promotionCode: string) {
+    const htmlContent = `
+    <div style="font-family: sans-serif; padding: 20px; line-height: 1.6; color: #333;">
+      <h2 style="color: #000;">Hola desde Root & Cane</h2>
+      <p>Has recibido un código de promoción especial:</p>
+      <div style="background: #f4f4f4; padding: 15px; border-radius: 5px; text-align: center; font-size: 20px; font-weight: bold; margin: 20px 0;">
+        ${promotionCode}
+      </div>
+      <p>¡Esperamos que lo disfrutes!</p>
+    </div>
+  `;
+
+    try {
+      await this.transporter.sendMail({
+        from: 'Root & Cane',
+        to: to,
+        subject: 'Tu código de promoción',
+        html: htmlContent,
+      });
+      this.logger.log(`📧 Promoción enviada a ${to}`);
+    } catch (error) {
+      this.logger.error(`❌ Error enviando email de promoción: ${error.message}`);
     }
   }
 }
