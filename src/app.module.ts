@@ -11,6 +11,7 @@ import { EmailsModule } from './emails/emails.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { WompiModule } from './wompi/wompi.module';
+import { PromotionsModule } from './promotions/promotions.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { WompiModule } from './wompi/wompi.module';
     AuthModule,
     UsersModule,
     WompiModule,
+    PromotionsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -7,8 +7,9 @@ import { ValidationPipe } from '@nestjs/common';
 const allowedOrigins = [
   'http://localhost:4200',
   'https://rootandcane.com',
+  'https://afiliamos-53090.web.app',
 ];
-
+  
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
