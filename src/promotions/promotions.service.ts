@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, InternalServerErrorException } from '@nestjs/common';
+import { ConflictException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { ConfigService } from '@nestjs/config';
@@ -162,51 +162,63 @@ export class PromotionsService {
     return result.Item; // Retorna el objeto si existe, o undefined si no
   }
 
-  async sendPromotionToUser(businessId: string, email: string, code: string, percentage?: number) {
-    // 1. Verificar si la promoción existe (código existente en tabla 'promotions')
-    const promo = await this.getPromotion(businessId, code);
+  // En tu PromotionsService
+  async sendPromotionToUser(businessId: string, email: string, campaignCode: string, percentage?: number) {
+    // 1. Obtener la promo base para saber el porcentaje
+    const promo = await this.getPromotion(businessId, campaignCode);
     if (!promo) throw new Error('La promoción no existe');
 
-    // 2. Verificar si el email ya usó este código en la tabla 'PromotionUsage'
-    // Estructura sugerida: PK=EMAIL#email, SK=PROMO#code
-    const usageKey = {
-      PK: `EMAIL#${email}`,
-      SK: `PROMO#${code}`
-    };
+    // 2. Generar el código único aleatorio
+    const uniqueCode = `${campaignCode}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
 
-    const checkCommand = new GetCommand({
-      TableName: 'PromotionUsage', // Asegúrate de crear esta tabla
-      Key: usageKey,
-    });
-
-    const existingUsage = await this.docClient.send(checkCommand);
-
-    if (existingUsage.Item) {
-      throw new ConflictException({
-        statusCode: 409,
-        message: 'El correo electrónico ya ha solicitado este código anteriormente',
-        error: 'PROMOTION_ALREADY_REQUESTED', // Código para que el front sepa qué hacer
-      });
+    try {
+      // 3. Guardar con PK compuesta para prevenir duplicados por email/campaña
+      await this.docClient.send(new PutCommand({
+        TableName: 'PromotionUsage',
+        Item: {
+          PK: `USER#${email}#CAMPAIGN#${campaignCode}`,
+          uniqueCode: uniqueCode, // Este atributo será indexado por el GSI
+          email: email,
+          campaign: campaignCode,
+          isUsed: false,
+          percentage: percentage ?? promo.percentage,
+          createdAt: new Date().toISOString(),
+        },
+        // Esto falla si el usuario ya solicitó esta campaña
+        ConditionExpression: 'attribute_not_exists(PK)'
+      }));
+    } catch (error) {
+      if (error.name === 'ConditionalCheckFailedException') {
+        throw new ConflictException({
+          statusCode: 409,
+          message: 'Ya has solicitado un código para esta campaña.',
+          error: 'PROMOTION_ALREADY_REQUESTED',
+        });
+      }
+      throw error;
     }
 
-    // 3. Registrar el uso inicial (isUsed: false)
-    const putUsageCommand = new PutCommand({
-      TableName: 'PromotionUsage',
-      Item: {
-        ...usageKey,
-        isUsed: false,
-        percentage: percentage || promo.percentage || null,
-        createdAt: new Date().toISOString(),
-      },
-    });
+    // 4. Enviar email
+    await this.emailService.sendPromotionEmail(email, uniqueCode);
 
-    await this.docClient.send(putUsageCommand);
-
-    // 4. Enviar el correo
-    await this.emailService.sendPromotionEmail(email, code);
-
-    return { success: true, message: 'Código enviado correctamente' };
+    return { success: true, uniqueCode };
   }
+
+  // Método para cuando el usuario quiera aplicar el código
+  async validateAndUseCode(uniqueCode: string) {
+    // Buscamos directo por el código
+    const result = await this.docClient.send(new GetCommand({
+      TableName: 'PromotionUsage',
+      Key: { PK: `UNIQUE_CODE#${uniqueCode}` },
+    }));
+
+    if (!result.Item) throw new NotFoundException('Código inválido');
+    if (result.Item.isUsed) throw new ConflictException('Código ya utilizado');
+
+    return result.Item;
+  }
+
+
 
 
   async markPromotionAsUsed(email: string, code: string) {
