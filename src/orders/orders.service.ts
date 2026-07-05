@@ -21,6 +21,7 @@ import { StripeService } from 'src/stripe/stripe.service';
 import { EmailsService } from 'src/emails/emails.service';
 import { WompiService } from 'src/wompi/wompi.service';
 import { CreateWompiOrderDto } from './dto/create-wompi-order.dto';
+import { PromotionsService } from 'src/promotions/promotions.service';
 
 @Injectable()
 export class OrdersService {
@@ -34,6 +35,7 @@ export class OrdersService {
     private stripeService: StripeService,
     private emailService: EmailsService,
     private wompiService: WompiService,
+    private promotionsService: PromotionsService,
   ) {
     const client = new DynamoDBClient({
       region: this.configService.getOrThrow<string>('AWS_REGION'),
@@ -56,9 +58,16 @@ export class OrdersService {
       items,
       shippingAddress,
       paymentIntentId,
+      discountCode,
     } = data;
     const orderId = uuidv4();
     const now = new Date().toISOString();
+
+    if (discountCode) {
+      // Reutilizamos tu lógica de validación
+      await this.promotionsService.validateUniqueCode(discountCode);
+      await this.promotionsService.markPromotionAsUsed(discountCode);
+    }
 
     try {
       // 1. VERIFICAR PAGO CON STRIPE PRIMERO

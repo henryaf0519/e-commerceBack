@@ -7,6 +7,7 @@ import {
   IsOptional,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { isNull } from 'util';
 
 class OrderItemDto {
   @IsString()
@@ -34,11 +35,15 @@ export class CreateOrderDto {
 
   @IsString()
   @IsNotEmpty()
-  shippoRateId: string; // El ID de la tarifa seleccionada en el paso anterior
+  shippoRateId?: string; // El ID de la tarifa seleccionada en el paso anterior
 
   @IsString()
   @IsOptional()
   paymentIntentId?: string; // ID de Stripe para referencia
+
+  @IsString()
+  @IsOptional()
+  discountCode?: string | null;
 
   @IsArray()
   @ValidateNested({ each: true })

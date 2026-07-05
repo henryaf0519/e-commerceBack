@@ -164,77 +164,76 @@ export class PromotionsService {
 
   // En tu PromotionsService
   async sendPromotionToUser(businessId: string, email: string, campaignCode: string, percentage?: number) {
-    // 1. Obtener la promo base para saber el porcentaje
     const promo = await this.getPromotion(businessId, campaignCode);
     if (!promo) throw new Error('La promoción no existe');
 
-    // 2. Generar el código único aleatorio
-    const uniqueCode = `${campaignCode}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+    // 1. Verificar si este email ya tiene un registro en esta campaña usando el índice
+    const existing = await this.docClient.send(new QueryCommand({
+      TableName: 'PromotionUsage',
+      IndexName: 'EmailCampaignIndex', // GSI por email y campaña
+      KeyConditionExpression: 'email = :email AND campaign = :campaign',
+      ExpressionAttributeValues: { ':email': email, ':campaign': campaignCode }
+    }));
 
-    try {
-      // 3. Guardar con PK compuesta para prevenir duplicados por email/campaña
-      await this.docClient.send(new PutCommand({
-        TableName: 'PromotionUsage',
-        Item: {
-          PK: `USER#${email}#CAMPAIGN#${campaignCode}`,
-          uniqueCode: uniqueCode, // Este atributo será indexado por el GSI
-          email: email,
-          campaign: campaignCode,
-          isUsed: false,
-          percentage: percentage ?? promo.percentage,
-          createdAt: new Date().toISOString(),
-        },
-        // Esto falla si el usuario ya solicitó esta campaña
-        ConditionExpression: 'attribute_not_exists(PK)'
-      }));
-    } catch (error) {
-      if (error.name === 'ConditionalCheckFailedException') {
-        throw new ConflictException({
-          statusCode: 409,
-          message: 'Ya has solicitado un código para esta campaña.',
-          error: 'PROMOTION_ALREADY_REQUESTED',
-        });
-      }
-      throw error;
+    if (existing.Items && existing.Items.length > 0) {
+      throw new ConflictException('Ya tienes un código activo para esta campaña');
     }
 
-    // 4. Enviar email
-    await this.emailService.sendPromotionEmail(email, uniqueCode);
+    // 2. Generar código y guardar usando el código como PK
+    const uniqueCode = `${campaignCode}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
 
+    await this.docClient.send(new PutCommand({
+      TableName: 'PromotionUsage',
+      Item: {
+        PK: uniqueCode, // EL CÓDIGO ES LA LLAVE
+        email: email,
+        campaign: campaignCode,
+        isUsed: false,
+        percentage: percentage ?? promo.percentage,
+        createdAt: new Date().toISOString(),
+      }
+    }));
+
+    await this.emailService.sendPromotionEmail(email, uniqueCode);
     return { success: true, uniqueCode };
   }
 
   // Método para cuando el usuario quiera aplicar el código
-  async validateAndUseCode(uniqueCode: string) {
-    // Buscamos directo por el código
-    const result = await this.docClient.send(new GetCommand({
+
+
+
+
+  // promotions.service.ts
+  async markPromotionAsUsed(uniqueCode: string) {
+    const command = new UpdateCommand({
       TableName: 'PromotionUsage',
-      Key: { PK: `UNIQUE_CODE#${uniqueCode}` },
-    }));
+      Key: { PK: uniqueCode },
+      UpdateExpression: 'set isUsed = :val',
+      ExpressionAttributeValues: { ':val': true },
+      ConditionExpression: 'attribute_exists(PK)' // Solo actualiza si existe
+    });
 
-    if (!result.Item) throw new NotFoundException('Código inválido');
-    if (result.Item.isUsed) throw new ConflictException('Código ya utilizado');
-
-    return result.Item;
+    try {
+      await this.docClient.send(command);
+    } catch (error) {
+      throw new InternalServerErrorException('Error al marcar el código como usado');
+    }
   }
 
 
+  // promotions.service.ts
 
-
-  async markPromotionAsUsed(email: string, code: string) {
-    const command = new UpdateCommand({
+  async validateUniqueCode(uniqueCode: string) {
+    // Realizamos la consulta usando el índice GSI
+    const result = await this.docClient.send(new GetCommand({
       TableName: 'PromotionUsage',
-      Key: {
-        PK: `EMAIL#${email}`,
-        SK: `PROMO#${code}`,
-      },
-      UpdateExpression: 'set isUsed = :val',
-      ExpressionAttributeValues: {
-        ':val': true,
-      },
-    });
+      Key: { PK: uniqueCode },
+    }));
 
-    await this.docClient.send(command);
+    if (!result.Item) throw new NotFoundException('Código no encontrado');
+    if (result.Item.isUsed) throw new ConflictException('Código ya utilizado');
+
+    return result.Item;
   }
 
 

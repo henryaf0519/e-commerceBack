@@ -12,6 +12,7 @@ import {
   BadRequestException,
   Patch,
   Param,
+  Query,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { S3Service } from 'src/common/services/s3.service';
@@ -44,6 +45,16 @@ export class PromotionsController {
       throw new BadRequestException('Falta el header x-business-id');
     }
     return this.promotionsService.sendPromotionToUser(businessId, body.email, body.code, Number(body.percentage));
+  }
+
+  @Get('user/validate')
+  async validatePromotion(
+    @Query('code') code: string,
+  ) {
+    if (!code) {
+      throw new BadRequestException('El parámetro code es requerido');
+    }
+    return this.promotionsService.validateUniqueCode(code);
   }
 
   // --- RUTAS DE ADMINISTRACIÓN (Con AuthGuard) ---

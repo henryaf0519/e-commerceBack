@@ -7,5 +7,6 @@ import { EmailsModule } from 'src/emails/emails.module';
   imports: [EmailsModule],
   controllers: [PromotionsController],
   providers: [PromotionsService],
+  exports: [PromotionsService],
 })
 export class PromotionsModule {}
